@@ -1,0 +1,9 @@
+{
+  "name": "Bungee Deliveries App",
+  "short_name": "BungeeDeliveries",
+  "description": "Order food from your favorite restaurants",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#FF6B00"
+}

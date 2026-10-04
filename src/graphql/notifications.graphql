@@ -1,0 +1,29 @@
+query GetMyNotifications($limit: Int, $offset: Int) {
+  getMyNotifications(limit: $limit, offset: $offset) {
+    id
+    type
+    title
+    message
+    read
+    action_url
+    created_at
+  }
+}
+
+query NotificationStats {
+  notificationStats {
+    unreadCount
+  }
+}
+
+mutation MarkNotificationAsRead($notificationId: ID!) {
+  markNotificationAsRead(notificationId: $notificationId)
+}
+
+mutation MarkAllNotificationsAsRead {
+  markAllNotificationsAsRead
+}
+
+mutation RegisterPushToken($token: String!, $device: String) {
+  registerPushToken(token: $token, device: $device)
+}
