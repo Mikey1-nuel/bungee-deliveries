@@ -47,7 +47,7 @@ export default function OnboardingSlider({
         >
           {current === total - 1 ? (
             <Link
-              href="/logIn"
+              href="/signUp"
               style={{ color: "inherit", textDecoration: "none" }}
             >
               Get Started

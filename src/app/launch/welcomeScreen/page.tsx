@@ -1,7 +1,9 @@
-import React from "react";
+"use client";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 const WelcomeScreen = () => {
+  const router = useRouter();
   return (
     <main className="bg-[#FF642F] w-full h-screen relative">
       <div className="absolute top-[30%] left-1/2 -translate-x-1/2 flex flex-col items-center gap-[20px]">
@@ -14,6 +16,7 @@ const WelcomeScreen = () => {
         <div className="flex flex-col justify-center items-center gap-[5px] w-[60%]">
           {/* Log In */}
           <button
+            onClick={() => router.push("/logIn")}
             className="
       rounded-full
       bg-[#f5cb58]
@@ -39,6 +42,7 @@ const WelcomeScreen = () => {
 
           {/* Sign Up */}
           <button
+            onClick={() => router.push("/launch/onboarding")}
             className="
       rounded-full
       bg-white

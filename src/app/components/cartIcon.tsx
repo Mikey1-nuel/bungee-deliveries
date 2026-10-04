@@ -5,16 +5,16 @@ import { useState } from "react";
 import { useCart } from "./cartContext";
 
 const CartIcon = () => {
-  const { items } = useCart();
+  const { cartItems } = useCart();
 
-  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
     <Link href="/dashboard/cart">
       <div className="relative bg-white dark:border-white rounded-[13px] p-2 flex items-center cursor-pointer">
         <Image src="/shopping-cart.png" alt="Cart" width={20} height={20} />
         {totalItems > 0 && (
-          <span className="ml-1 text-xs font-bold text-white bg-red-500 rounded-full w-4 h-4 flex items-center justify-center">
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
             {totalItems}
           </span>
         )}

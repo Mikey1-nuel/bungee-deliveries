@@ -1,108 +1,197 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
+
 import Image from "next/image";
+
 import { motion, AnimatePresence } from "framer-motion";
 
-import { Meal } from "../types/type";
+import { useQuery } from "@apollo/client/react";
+
 import {
-  meals,
-  restaurants,
-  restaurantMeals,
-  mockOrders,
-  mockOrderItems,
-} from "@/data/restaurantsEtMeals";
+  GetCategoriesResponse,
+  GetFeaturedMenusResponse,
+  GetRestaurantsResponse,
+  GetRestaurantMenusResponse,
+  MenuResult,
+} from "../types/type";
 
-import { getTopOrderedMeals } from "@/lib/mostOrderedMeals";
-import { getMostOrderedRestaurants } from "@/lib/mostOrderedRestaurants";
-import { getRestaurantsByCategory } from "@/lib/getRestaurantsByCategory";
-import { useCategoryMeals } from "../hooks/useCategoryMeals";
+import { GET_CATEGORIES } from "@/graphql/queries/category.queries";
 
-import MealCard from "./mealCard";
-import MealDetailsModal from "./mealDetailsModal";
+import { GET_FEATURED_MENUS } from "@/graphql/queries/menu.queries";
+
+import { GET_RESTAURANTS } from "@/graphql/queries/restaurant.queries";
+
+import { useCategoryMenus } from "../hooks/useCategoryMenus";
+
+import MenuCard from "./menuCard";
+
+import MenuDetailsModal from "./menuDetailsModal";
+
 import RestaurantCard from "./restaurantCard";
-import { attachOrderCountToRestaurants } from "@/lib/restaurantOrderUtils";
 
-export const categories = [
-  { id: 1, name: "Main Meals", icon: "/restaurant.png" },
-  { id: 2, name: "Soups & Swallows", icon: "/hot-soup.png" },
-  { id: 3, name: "Grills & Sides", icon: "/chicken.png" },
-  { id: 4, name: "Snacks & Pastries", icon: "/nachos.png" },
-  { id: 5, name: "Desserts", icon: "/dessert.png" },
-  { id: 6, name: "Drinks & Beverages", icon: "/lemonade.png" },
-];
+import { useAuth } from "@/context/authContext";
 
 const pageVariants = {
-  initial: { opacity: 0, y: 15 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -15 },
+  initial: {
+    opacity: 0,
+    y: 15,
+  },
+
+  animate: {
+    opacity: 1,
+    y: 0,
+  },
+
+  exit: {
+    opacity: 0,
+    y: -15,
+  },
 };
 
 const Home = () => {
-  const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
-  const [activeMeal, setActiveMeal] = useState<Meal | null>(null);
+  const { user } = useAuth();
 
-  const { data: categoryMeals, loading } = useCategoryMeals(activeCategoryId);
+  //
+  // STATES
+  //
 
-  const topMeals = getTopOrderedMeals(mockOrders, mockOrderItems, meals);
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
 
-  const topRestaurants = getMostOrderedRestaurants(mockOrders, restaurants);
-  console.log("getMostOrderedRestaurants:", getMostOrderedRestaurants);
+  const [activeMenu, setActiveMenu] = useState<MenuResult | null>(null);
 
-  const filteredRestaurantsRaw = getRestaurantsByCategory(
-    activeCategoryId!,
-    meals,
-    restaurants,
-    restaurantMeals,
-  );
+  //
+  // CATEGORIES
+  //
 
-  const filteredRestaurants = attachOrderCountToRestaurants(
-    filteredRestaurantsRaw,
-    mockOrders,
+  const { data: categoriesData, loading: categoriesLoading } =
+    useQuery<GetCategoriesResponse>(GET_CATEGORIES);
+
+  const categories = categoriesData?.categories || [];
+
+  //
+  // FEATURED MENUS
+  //
+
+  const { data: featuredMenusData, loading: featuredMenusLoading } =
+    useQuery<GetFeaturedMenusResponse>(GET_FEATURED_MENUS);
+
+  const featuredMenus = featuredMenusData?.featuredMenus || [];
+
+  //
+  // RESTAURANTS
+  //
+
+  const { data: restaurantsData, loading: restaurantsLoading } =
+    useQuery<GetRestaurantsResponse>(GET_RESTAURANTS);
+
+  const restaurants = restaurantsData?.getRestaurants || [];
+
+  //
+  // CATEGORY MENUS
+  //
+
+  const { data: categoryMenus, loading: categoryMenusLoading } =
+    useCategoryMenus(activeCategoryId);
+
+  //
+  // ACTIVE CATEGORY
+  //
+
+  const activeCategory = categories.find(
+    (category) => category.id === activeCategoryId,
   );
 
   return (
-    <main className="h-screen bg-white">
-      <div className="bg-white rounded-[30px_30px_0_0] p-[35px_45px] flex flex-col">
+    <main className="h-screen bg-white overflow-y-auto">
+      <div
+        className="
+          bg-white
+          rounded-[30px_30px_0_0]
+          p-[35px_45px]
+          flex
+          flex-col
+        "
+      >
         {/* ================= CATEGORIES ================= */}
-        <section className="flex justify-between items-center w-full">
-          {categories.map((category) => {
-            const isActive = activeCategoryId === category.id;
 
-            return (
-              <button
-                key={category.id}
-                onClick={() =>
-                  setActiveCategoryId((prev) =>
-                    prev === category.id ? null : category.id,
-                  )
-                }
-                className={`flex flex-col items-center p-[10px] rounded-[20px_20px_0_0]
-                ${isActive ? "bg-[#E95322]" : "bg-white"}`}
-              >
-                <div className="w-[70px] h-[70px] rounded-[20px] flex items-center justify-center bg-[#F3E9B5]">
-                  <Image
-                    src={category.icon}
-                    alt={category.name}
-                    width={40}
-                    height={40}
-                  />
-                </div>
-                <p
-                  className={`mt-2 text-sm font-medium ${
-                    isActive ? "text-white" : "text-[#391713]"
-                  }`}
+        <section
+          className="
+            grid
+            grid-cols-5
+            items-center
+            gap-4
+            overflow-x-auto
+            scrollbar-hide
+            pb-2
+          "
+        >
+          {categoriesLoading ? (
+            <p>Loading categories...</p>
+          ) : (
+            categories.map((category) => {
+              const isActive = activeCategoryId === category.id;
+
+              return (
+                <button
+                  key={category.id}
+                  onClick={() =>
+                    setActiveCategoryId((prev) =>
+                      prev === category.id ? null : category.id,
+                    )
+                  }
+                  className={`
+                      min-w-[110px]
+                      flex
+                      flex-col
+                      items-center
+                      p-[10px]
+                      rounded-[20px_20px_0_0]
+                      transition-all
+                      duration-300
+                      ${isActive ? "bg-[#E95322]" : "bg-white"}
+                    `}
                 >
-                  {category.name}
-                </p>
-              </button>
-            );
-          })}
+                  <div
+                    className="
+                        w-[70px]
+                        h-[70px]
+                        rounded-[20px]
+                        flex
+                        items-center
+                        justify-center
+                        bg-[#F3E9B5]
+                      "
+                  >
+                    <Image
+                      src={category.icon || "/placeholder.png"}
+                      alt={category.name}
+                      width={40}
+                      height={40}
+                      className="object-contain"
+                    />
+                  </div>
+
+                  <p
+                    className={`
+                        mt-2
+                        text-sm
+                        font-medium
+                        ${isActive ? "text-white" : "text-[#391713]"}
+                      `}
+                  >
+                    {category.name}
+                  </p>
+                </button>
+              );
+            })
+          )}
         </section>
 
         {/* ================= CONTENT ================= */}
+
         <AnimatePresence mode="wait">
-          {activeCategoryId === null ? (
+          {!activeCategoryId ? (
             <motion.div
               key="home"
               variants={pageVariants}
@@ -110,28 +199,84 @@ const Home = () => {
               animate="animate"
               exit="exit"
             >
-              {/* TOP MEALS */}
+              {/* ================= FEATURED MENUS ================= */}
+
               <section className="mt-10">
-                <h2 className="font-semibold mb-3">Top Ordered Meals</h2>
-                <div className="grid grid-cols-4 gap-4">
-                  {topMeals.map((meal) => (
-                    <MealCard
-                      key={meal.id}
-                      meal={meal}
-                      onClick={setActiveMeal}
-                    />
-                  ))}
+                <div
+                  className="
+                    flex
+                    items-center
+                    justify-between
+                    mb-4
+                  "
+                >
+                  <h2 className="font-semibold text-lg">Featured Menus</h2>
                 </div>
+
+                {featuredMenusLoading ? (
+                  <p>Loading menus...</p>
+                ) : featuredMenus.length === 0 ? (
+                  <p>No featured menus available.</p>
+                ) : (
+                  <div
+                    className="
+                      grid
+                      grid-cols-1
+                      sm:grid-cols-2
+                      lg:grid-cols-3
+                      xl:grid-cols-4
+                      gap-5
+                    "
+                  >
+                    {featuredMenus.map((item, index) => (
+                      <MenuCard
+                        key={"featured-" + index}
+                        data={item}
+                        role={user?.role}
+                        onClick={setActiveMenu}
+                      />
+                    ))}
+                  </div>
+                )}
               </section>
 
-              {/* TOP RESTAURANTS */}
-              <section className="mt-10">
-                <h2 className="font-semibold mb-3">Most Ordered Restaurants</h2>
-                <div className="grid grid-cols-4 gap-4">
-                  {topRestaurants.map((r) => (
-                    <RestaurantCard key={r.id} restaurant={r} />
-                  ))}
+              {/* ================= RESTAURANTS ================= */}
+
+              <section className="mt-12">
+                <div
+                  className="
+                    flex
+                    items-center
+                    justify-between
+                    mb-4
+                  "
+                >
+                  <h2 className="font-semibold text-lg">Restaurants</h2>
                 </div>
+
+                {restaurantsLoading ? (
+                  <p>Loading restaurants...</p>
+                ) : restaurants.length === 0 ? (
+                  <p>No restaurants available.</p>
+                ) : (
+                  <div
+                    className="
+                      grid
+                      grid-cols-1
+                      sm:grid-cols-2
+                      lg:grid-cols-3
+                      xl:grid-cols-4
+                      gap-5
+                    "
+                  >
+                    {restaurants.map((restaurant) => (
+                      <RestaurantCard
+                        key={restaurant.id}
+                        restaurant={restaurant}
+                      />
+                    ))}
+                  </div>
+                )}
               </section>
             </motion.div>
           ) : (
@@ -141,30 +286,63 @@ const Home = () => {
               initial="initial"
               animate="animate"
               exit="exit"
-              className="bg-[#E95322] p-[15px] rounded-[0_0_20px_20px]"
+              className="
+                bg-[#E95322]
+                mt-8
+                p-[20px]
+                rounded-[0_0_20px_20px]
+              "
             >
-              {/* BACK BUTTON */}
+              {/* ================= BACK BUTTON ================= */}
+
               <button
                 onClick={() => setActiveCategoryId(null)}
-                className="text-white mb-4 underline"
+                className="
+                  text-white
+                  mb-5
+                  text-sm
+                  underline
+                "
               >
                 ← Back to Home
               </button>
 
-              <h2 className="text-white font-semibold mb-3">
-                {categories.find((c) => c.id === activeCategoryId)?.name}
+              {/* ================= TITLE ================= */}
+
+              <h2
+                className="
+                  text-white
+                  font-semibold
+                  text-xl
+                  mb-5
+                "
+              >
+                {activeCategory?.name}
               </h2>
 
-              {/* MEALS */}
-              {loading ? (
-                <p className="text-white">Loading meals...</p>
+              {/* ================= CATEGORY MENUS ================= */}
+
+              {categoryMenusLoading ? (
+                <p className="text-white">Loading menus...</p>
+              ) : categoryMenus.length === 0 ? (
+                <p className="text-white">No menus found in this category.</p>
               ) : (
-                <div className="grid grid-cols-4 gap-4">
-                  {categoryMeals.map((meal) => (
-                    <MealCard
-                      key={meal.id}
-                      meal={meal}
-                      onClick={setActiveMeal}
+                <div
+                  className="
+                    grid
+                    grid-cols-1
+                    sm:grid-cols-2
+                    lg:grid-cols-3
+                    xl:grid-cols-4
+                    gap-5
+                  "
+                >
+                  {categoryMenus.map((item, index) => (
+                    <MenuCard
+                      key={"category-" + index}
+                      data={item}
+                      role={user?.role}
+                      onClick={setActiveMenu}
                     />
                   ))}
                 </div>
@@ -174,10 +352,11 @@ const Home = () => {
         </AnimatePresence>
 
         {/* ================= MODAL ================= */}
-        {activeMeal && (
-          <MealDetailsModal
-            meal={activeMeal}
-            onClose={() => setActiveMeal(null)}
+
+        {activeMenu && (
+          <MenuDetailsModal
+            menu={activeMenu}
+            onClose={() => setActiveMenu(null)}
           />
         )}
       </div>
