@@ -1,223 +1,239 @@
 "use client";
-import { useState } from "react";
-import Image from "next/image";
 
-interface OrderItem {
-  id: number;
-  mealName: string;
-  restaurantName: string;
-  image?: string;
-  quantity: number;
-  price: number;
-  timestamp: string;
-  status: "active" | "completed" | "cancelled";
-}
+import { useMemo, useState, useEffect, useRef } from "react";
+import Image from "next/image";
+import toast from "react-hot-toast";
+import { useMutation, useQuery } from "@apollo/client/react";
+import { useSearchParams } from "next/navigation";
+import { GET_MY_ORDERS } from "@/graphql/queries/order.queries";
+import { UPDATE_ORDER_STATUS } from "@/graphql/mutations/order.mutations";
+import { useCart } from "@/app/components/cartContext";
+import { UserOrder, MenuType } from "@/app/types/type";
+
+const ORDER_FILTERS = [
+  { label: "All", value: "all" },
+  { label: "Active", value: "active" },
+  { label: "Completed", value: "completed" },
+  { label: "Cancelled", value: "cancelled" },
+];
 
 export default function OrderHistoryPage() {
-  const [activeTab, setActiveTab] = useState<
-    "active" | "completed" | "cancelled"
-  >("active");
+  const { addItem, cartItems } = useCart();
+  const searchParams = useSearchParams();
+  const highlightId = searchParams.get("highlight");
 
-  // Example data (replace with real orders from backend)
-  const orders: OrderItem[] = [
-    {
-      id: 1,
-      mealName: "Jollof Rice",
-      restaurantName: "Ntachi-Osa",
-      image: "/Screenshot (283).png",
-      quantity: 2,
-      price: 2500,
-      timestamp: "2026-02-13 12:30 PM",
-      status: "active",
-    },
-    {
-      id: 2,
-      mealName: "Jollof Rice",
-      restaurantName: "Ntachi-Osa",
-      image: "/Screenshot (283).png",
-      quantity: 2,
-      price: 2500,
-      timestamp: "2026-02-13 12:30 PM",
-      status: "completed",
-    },
-    {
-      id: 3,
-      mealName: "Jollof Rice",
-      restaurantName: "Ntachi-Osa",
-      image: "/Screenshot (283).png",
-      quantity: 2,
-      price: 2500,
-      timestamp: "2026-02-13 12:30 PM",
-      status: "cancelled",
-    },
-    {
-      id: 4,
-      mealName: "Pizza Margherita",
-      restaurantName: "Foodopolis Enugu",
-      image: "/Screenshot (294).png",
-      quantity: 1,
-      price: 4000,
-      timestamp: "2026-02-12 7:00 PM",
-      status: "active",
-    },
-    {
-      id: 5,
-      mealName: "Pizza Margherita",
-      restaurantName: "Foodopolis Enugu",
-      image: "/Screenshot (294).png",
-      quantity: 1,
-      price: 4000,
-      timestamp: "2026-02-12 7:00 PM",
-      status: "completed",
-    },
-    {
-      id: 6,
-      mealName: "Pizza Margherita",
-      restaurantName: "Foodopolis Enugu",
-      image: "/Screenshot (294).png",
-      quantity: 1,
-      price: 4000,
-      timestamp: "2026-02-12 7:00 PM",
-      status: "cancelled",
-    },
-    {
-      id: 7,
-      mealName: "Beans & Plantain",
-      restaurantName: "OceanEventsNG",
-      image: "/Screenshot (288).png",
-      quantity: 1,
-      price: 2000,
-      timestamp: "2026-02-10 2:00 PM",
-      status: "active",
-    },
-    {
-      id: 8,
-      mealName: "Beans & Plantain",
-      restaurantName: "OceanEventsNG",
-      image: "/Screenshot (288).png",
-      quantity: 1,
-      price: 2000,
-      timestamp: "2026-02-10 2:00 PM",
-      status: "completed",
-    },
-    {
-      id: 9,
-      mealName: "Beans & Plantain",
-      restaurantName: "OceanEventsNG",
-      image: "/Screenshot (288).png",
-      quantity: 1,
-      price: 2000,
-      timestamp: "2026-02-10 2:00 PM",
-      status: "cancelled",
-    },
-  ];
+  const [activeFilter, setActiveFilter] = useState("all");
+  const highlightRef = useRef<HTMLDivElement | null>(null);
 
-  const filteredOrders = orders.filter((order) => order.status === activeTab);
+  const { data, loading, refetch } = useQuery<{ getMyOrders: UserOrder[] }>(
+    GET_MY_ORDERS,
+  );
+  const [updateOrderStatus] = useMutation(UPDATE_ORDER_STATUS);
+
+  const orders = data?.getMyOrders || [];
+
+  const filteredOrders = useMemo(() => {
+    if (activeFilter === "active") {
+      return orders.filter((o) =>
+        [
+          "pending",
+          "accepted",
+          "preparing",
+          "ready_for_pickup",
+          "picked_up",
+        ].includes(o.status),
+      );
+    }
+    if (activeFilter === "completed")
+      return orders.filter((o) => o.status === "delivered");
+    if (activeFilter === "cancelled")
+      return orders.filter((o) => ["cancelled", "rejected"].includes(o.status));
+    return orders;
+  }, [activeFilter, orders]);
+
+  // Scroll to highlighted order once data loads
+  useEffect(() => {
+    if (highlightId && highlightRef.current) {
+      highlightRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }
+  }, [highlightId, filteredOrders]);
+
+  const handleCancelOrder = async (orderId: string) => {
+    try {
+      await updateOrderStatus({ variables: { orderId, status: "cancelled" } });
+      toast.success("Order cancelled");
+      refetch();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to cancel order");
+    }
+  };
+
+  const handleReorder = (order: UserOrder) => {
+    try {
+      const existingRestaurantId = cartItems[0]?.restaurant_id;
+      if (
+        existingRestaurantId &&
+        existingRestaurantId !== order.restaurant.id
+      ) {
+        toast.error("You already have items from another restaurant in cart");
+        return;
+      }
+
+      order.items.forEach((item) => {
+        addItem({
+          id: crypto.randomUUID(),
+          restaurant_menu_id: item.restaurant_menu_id,
+          restaurant_id: order.restaurant.id,
+          restaurant_name: order.restaurant.name,
+          menu_name: item.menu.name,
+          menu_type: item.menu.type as MenuType,
+          menu_image: item.menu.image,
+          unit_price: item.unit_price,
+          quantity: item.quantity,
+          total_price: item.total_price,
+        });
+      });
+
+      toast.success("Items added to cart");
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
+  if (loading) return <div className="p-10">Loading orders...</div>;
 
   return (
-    <div className="bg-white rounded-[30px_30px_0_0] p-[35px_45px] flex flex-col gap-[20px] h-screen">
-      <h2 className="text-2xl font-semibold text-[#391713]">Order History</h2>
-
-      {/* Toggle buttons */}
-      <div className="flex gap-4">
-        <button
-          onClick={() => setActiveTab("active")}
-          className={`px-4 py-1 rounded-[20px] font-[500] ${activeTab === "active" ? "bg-[#E95322] text-white" : "bg-[#FFDECF] text-[#E95322]"}`}
-        >
-          Active
-        </button>
-        <button
-          onClick={() => setActiveTab("completed")}
-          className={`px-4 py-1 rounded-[20px] font-[500] ${activeTab === "completed" ? "bg-[#E95322] text-white" : "bg-[#FFDECF] text-[#E95322]"}`}
-        >
-          Completed
-        </button>
-        <button
-          onClick={() => setActiveTab("cancelled")}
-          className={`px-4 py-1 rounded-[20px] font-[500] ${activeTab === "cancelled" ? "bg-[#E95322] text-white" : "bg-[#FFDECF] text-[#E95322]"}`}
-        >
-          Cancelled
-        </button>
+    <div className="bg-white rounded-[30px_30px_0_0] p-[35px_45px] flex flex-col gap-6 min-h-screen">
+      <div className="flex justify-between items-center flex-wrap gap-4">
+        <h2 className="text-2xl font-semibold text-[#391713]">Order History</h2>
       </div>
 
-      {/* Orders list */}
-      <div className="w-full">
-        {filteredOrders.length === 0 ? (
-          <p className="text-gray-500">No {activeTab} orders</p>
-        ) : (
-          filteredOrders.map((order) => (
-            <div
-              key={order.id}
-              className="flex justify-between items-start border-b border-orange-100 rounded-lg p-4 mb-2"
-            >
-              <div className="flex gap-4">
-                <div className="w-20 h-20 relative rounded-lg overflow-hidden">
-                  <Image
-                    src={order.image ?? "/placeholder.png"}
-                    alt={order.mealName}
-                    fill
-                    className="object-contain rounded-[10px]"
-                  />
-                </div>
-                <div>
-                  <h3 className="font-semibold">{order.mealName}</h3>
-                  <p className="text-xs text-gray-500">
-                    {order.restaurantName}
-                  </p>
-                  <p className="text-sm font-medium">Qty: {order.quantity}</p>
-                  <p className="text-xs text-gray-400">{order.timestamp}</p>
-                </div>
-              </div>
+      <div className="flex gap-3 overflow-x-auto pb-2">
+        {ORDER_FILTERS.map((filter) => (
+          <button
+            key={filter.value}
+            onClick={() => setActiveFilter(filter.value)}
+            className={`whitespace-nowrap px-4 py-2 rounded-full text-sm capitalize transition ${
+              activeFilter === filter.value
+                ? "bg-[#E95322] text-white"
+                : "bg-[#FFF1EB] text-[#E95322]"
+            }`}
+          >
+            {filter.label}
+          </button>
+        ))}
+      </div>
 
-              <div className="flex flex-col items-end h-full">
-                <p className="font-semibold text-[#E95322]">
-                  ₦{order.price.toLocaleString()}
-                </p>
+      {filteredOrders.length === 0 ? (
+        <p className="text-gray-500">No orders found</p>
+      ) : (
+        <div className="flex flex-col gap-6">
+          {filteredOrders.map((order) => {
+            const isHighlighted = order.id === highlightId;
+            const canCancel = order.status === "pending";
+            const canTrack = [
+              "accepted",
+              "preparing",
+              "ready_for_pickup",
+              "picked_up",
+            ].includes(order.status);
+            const canReorder = ["delivered", "cancelled", "rejected"].includes(
+              order.status,
+            );
 
-                {/* Actions based on status */}
-                {order.status === "active" && (
-                  <div className="flex gap-2 mt-2">
-                    <button className="bg-[#E95322] text-white px-3 py-1 rounded-[20px] text-sm">
-                      Cancel Order
-                    </button>
-                    <button className="bg-[#FFDECF] text-[#E95322] px-3 py-1 rounded-[20px] text-sm">
-                      Track Driver
-                    </button>
+            return (
+              <div
+                key={order.id}
+                ref={isHighlighted ? highlightRef : null}
+                className={`border rounded-2xl overflow-hidden transition-all duration-500 ${
+                  isHighlighted
+                    ? "border-[#E95322] shadow-lg shadow-orange-100 ring-2 ring-[#E95322]/30"
+                    : "border-orange-100"
+                }`}
+              >
+                <div className="bg-[#FFF5EE] p-4 flex justify-between items-center">
+                  <div>
+                    <h3 className="font-semibold">{order.restaurant.name}</h3>
+                    <p className="text-xs text-gray-500">
+                      {order.deliveryAddress}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {new Date(Number(order.createdAt)).toLocaleString()}
+                    </p>
                   </div>
-                )}
-
-                {order.status === "completed" && (
-                  <div className="flex flex-col items-end gap-2 mt-2">
-                    <span className="text-[#E95322] text-sm flex justify-center items-center gap-[5px]">
-                      <Image
-                        src="/check (5).png"
-                        alt="Delete Icon"
-                        width={15}
-                        height={15}
-                      />
-                      Order Delivered
+                  <div className="flex flex-col items-end gap-2">
+                    <span className="capitalize text-sm font-medium">
+                      {order.status.replace(/_/g, " ")}
                     </span>
-                    <div className="flex gap-[10px] font-[500]">
-                      <button className="bg-[#E95322] text-white px-3 py-1 rounded-[20px] text-sm">
-                        Leave a Review
-                      </button>
-                      <button className="bg-[#FFDECF] text-[#E95322] px-3 py-1 rounded-[20px] text-sm">
-                        Order Again
-                      </button>
-                    </div>
+                    <p className="font-semibold text-[#E95322]">
+                      ₦{order.total.toLocaleString()}
+                    </p>
                   </div>
-                )}
+                </div>
 
-                {order.status === "cancelled" && (
-                  <span className="text-red-500 text-sm mt-2">
-                    Order Cancelled
-                  </span>
-                )}
+                <div className="p-4">
+                  <div className="space-y-4">
+                    {order.items.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex justify-between items-center"
+                      >
+                        <div className="flex gap-4">
+                          <div className="w-20 h-20 relative rounded-lg overflow-hidden bg-gray-100">
+                            <Image
+                              src={item.menu.image || "/placeholder.png"}
+                              alt={item.menu.name}
+                              fill
+                              className="object-cover"
+                            />
+                          </div>
+                          <div>
+                            <h4 className="font-semibold">{item.menu.name}</h4>
+                            <p className="text-xs text-gray-400 capitalize">
+                              {item.menu.type}
+                            </p>
+                            <p className="text-sm">Qty: {item.quantity}</p>
+                          </div>
+                        </div>
+                        <p className="font-semibold">
+                          ₦{item.totalPrice.toLocaleString()}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-6 flex justify-end gap-3">
+                    {canCancel && (
+                      <button
+                        onClick={() => handleCancelOrder(order.id)}
+                        className="bg-red-500 text-white px-4 py-2 rounded-full text-sm"
+                      >
+                        Cancel Order
+                      </button>
+                    )}
+                    {canTrack && (
+                      <button className="bg-[#FFF1EB] text-[#E95322] px-4 py-2 rounded-full text-sm">
+                        Track Order
+                      </button>
+                    )}
+                    {canReorder && (
+                      <button
+                        onClick={() => handleReorder(order)}
+                        className="bg-[#E95322] text-white px-4 py-2 rounded-full text-sm"
+                      >
+                        Reorder
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          ))
-        )}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
