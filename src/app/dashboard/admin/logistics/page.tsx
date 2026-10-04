@@ -1,4 +1,3 @@
-// src/app/dashboard/admin/logistics/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";

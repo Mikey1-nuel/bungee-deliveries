@@ -1,4 +1,3 @@
-// src/app/dashboard/rider/page.tsx
 "use client";
 
 import { useQuery, useMutation } from "@apollo/client/react";
