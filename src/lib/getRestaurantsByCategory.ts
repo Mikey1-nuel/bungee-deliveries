@@ -1,22 +1,22 @@
-import { Meal, Restaurant, RestaurantMeal } from "@/app/types/type";
+import { Menu, Restaurant, RestaurantMenu } from "@/app/types/type";
 
 export function getRestaurantsByCategory(
-  categoryId: number,
-  meals: Meal[],
+  categoryId: string,
+  menus: Menu[],
   restaurants: Restaurant[],
-  restaurantMeals: RestaurantMeal[]
+  restaurantMenus: RestaurantMenu[]
 ) {
-  // Meals in this category
-  const mealIds = meals
-    .filter(m => m.categoryId === categoryId)
-    .map(m => m.id);
+  // Get menus in this category
+  const menuIds = menus
+    .filter((m) => m.categoryId === categoryId)
+    .map((m) => m.id);
 
-  // Restaurants that serve those meals
+  // Get restaurants that have those menus
   const restaurantIds = new Set(
-    restaurantMeals
-      .filter(rm => mealIds.includes(rm.mealId))
-      .map(rm => rm.restaurantId)
+    restaurantMenus
+      .filter((rm) => menuIds.includes(rm.menuId))
+      .map((rm) => rm.restaurantId)
   );
 
-  return restaurants.filter(r => restaurantIds.has(r.id));
+  return restaurants.filter((r) => restaurantIds.has(r.id));
 }
