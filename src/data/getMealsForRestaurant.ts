@@ -1,37 +1,34 @@
-// src/lib/getMealsForRestaurant.ts
-import { meals, restaurants, cuisineMealMap } from "./restaurantsEtMeals";
-import { Meal, MealWithPrice } from "@/app/types/type";
-import { restaurantMeals } from "@/data/restaurantMeals";
+import { menus, restaurants } from "@/data/restaurantsEtMenus";
+import { restaurantMenus } from "./restaurantMenus";
+import { MenuWithPrice } from "@/app/types/type";
 
-export function getMealsForRestaurant(
+export function getMenusForRestaurant(
   restaurantId: number
-): MealWithPrice[] {
+): MenuWithPrice[] {
 
   console.log(
     "Restaurant:",
     restaurants.find(r => r.id === restaurantId)
   );
 
-  console.log(
-    "Cuisine meals:",
-    cuisineMealMap[
-      restaurants.find(r => r.id === restaurantId)?.cuisine ?? ""
-    ]
-  );
-
-  return restaurantMeals
+  return restaurantMenus
     .filter(
       rm =>
         rm.restaurantId === restaurantId &&
-        rm.isAvailable &&
-        meals.some(m => m.id === rm.mealId)
+        rm.isAvailable
     )
     .map(rm => {
-      const meal = meals.find(m => m.id === rm.mealId)!;
+
+      const menu = menus.find(m => m.id === rm.menuId);
+
+      if (!menu) return null;
 
       return {
-        ...meal,
-        price: rm.price,
+        ...menu,
+        price: rm.basePrice
       };
-    });
+
+    })
+    .filter(Boolean) as MenuWithPrice[];
+
 }

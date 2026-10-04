@@ -1,7 +1,20 @@
 "use client";
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import LogoutModal from "./logOutModal";
+import { useRouter } from "next/navigation";
+
+import {
+  useApolloClient,
+  useMutation,
+} from "@apollo/client/react";
+
+import { LOGOUT_MUTATION } from "@/graphql/mutations/auth";
+
+import { forceLogout } from "@/utils/logout";
+import { useAuth } from "@/context/authContext";
 import "../globals.css";
 
 const navItems = [
@@ -19,7 +32,7 @@ const navItems = [
   },
   {
     name: "Delivery Address",
-    href: "/dashboard/deliveryAdress",
+    href: "/dashboard/deliveryAddress",
     imgurl: "/location (2).png",
     imgurl2: "/location (2).png",
   },
@@ -37,7 +50,7 @@ const navItems = [
   },
   {
     name: "Help & FAQs",
-    href: "/dashboard/help&FAQs",
+    href: "/dashboard/help&Faqs",
     imgurl: "/faq.png",
     imgurl2: "/faq.png",
   },
@@ -52,14 +65,37 @@ const navItems = [
 const navLogout = [
   {
     name: "Log Out",
-    href: "/",
+    action: "logout",
     imgurl: "/logout.png",
     imgurl2: "/logout.png",
   },
 ];
 
 export default function Sidebar() {
+  const { user } = useAuth();
   const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+
+  const router = useRouter();
+
+  const client = useApolloClient();
+
+  const [logoutMutation, { loading }] =
+    useMutation(LOGOUT_MUTATION);
+
+  const handleLogout =
+  async () => {
+    try {
+      await logoutMutation();
+    } catch (err) {
+      console.error(
+        "LOGOUT ERROR:",
+        err
+      );
+    }
+
+    await forceLogout();
+  };
 
   return (
     <aside className="sidebar relative w-64 h-full overflow-y-auto flex flex-col items-start justify-start gap-8 px-4 py-6 bg-[#E95322] dark:bg-gray-900 text-gray-900 dark:text-white">
@@ -68,8 +104,8 @@ export default function Sidebar() {
           <Image src="/user (3).png" alt="User icon" width={25} height={25} />
         </div>
         <div className="text-white">
-          <h2 className="text-xl font-extrabold">John Smith</h2>
-          <p className="text-[12px] text-[#F3E9B5]">johnsmith@gmail.com</p>
+          <h2 className="text-xl font-extrabold">{user?.fullName}</h2>
+          <p className="text-[12px] text-[#F3E9B5]">{user?.email}</p>
         </div>
       </div>
       <nav className="flex flex-col gap-y-4 text-gray-500">
@@ -99,27 +135,29 @@ export default function Sidebar() {
 
       <nav className="fixed bottom-3 flex flex-col gap-y-4 text-gray-500">
         {navLogout.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={`flex items-center gap-x-4 text-[13px] py-2 px-4 rounded-[8px] transition-colors duration-200 ${
-              pathname === item.href
-                ? "bg-gradient-to-r from-yellow-500 to-orange-600 text-white"
-                : "text-white hover:text-gray-200 dark:text-white dark:hover:text-blue-300 font-[600]"
-            }`}
-            aria-current={pathname === item.href ? "page" : undefined}
+          <div
+            key={item.name}
+            onClick={() => setOpen(true)}
+            className="flex items-center gap-x-4 text-[13px] py-2 px-4 rounded-[8px] transition-colors duration-200 cursor-pointer"
           >
             <Image
-              src={pathname === item.href ? item.imgurl2 : item.imgurl}
+              src={item.imgurl}
               alt={`${item.name} icon`}
               width={30}
               height={30}
               className="bg-white p-[5px] rounded-[10px]"
             />
-            <span>{item.name}</span>
-          </Link>
+            <span className="text-white hover:text-gray-200 dark:text-white dark:hover:text-blue-300 font-[600]">{item.name}</span>
+          </div>
         ))}
       </nav>
+
+      <LogoutModal
+        open={open}
+        onClose={() => setOpen(false)}
+        onConfirm={handleLogout}
+        loading={loading}
+      />
     </aside>
   );
 }

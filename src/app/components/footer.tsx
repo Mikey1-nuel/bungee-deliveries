@@ -11,8 +11,8 @@ const footItems = [
     imgurl: "/home (1).png",
   },
   {
-    name: "Meals",
-    href: "/dashboard/meals",
+    name: "Menu",
+    href: "/dashboard/menus",
     imgurl: "/tray.png",
   },
   {
@@ -22,12 +22,12 @@ const footItems = [
   },
   {
     name: "Favorites",
-    href: "/dashboard/settings",
+    href: "/dashboard/favorites",
     imgurl: "/heart (1).png",
   },
   {
     name: "Support",
-    href: "/dashboard/settings",
+    href: "/dashboard/support",
     imgurl: "/support.png",
   },
 ];

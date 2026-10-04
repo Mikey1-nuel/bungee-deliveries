@@ -1,55 +1,105 @@
 "use client";
 
 import { useState } from "react";
+
 import { useParams } from "next/navigation";
-import { restaurants } from "@/data/restaurantsEtMeals";
-import { getMealsForRestaurant } from "@/data/getMealsForRestaurant";
-import MealCard from "@/app/components/mealCard";
-import MealDetailsModal from "@/app/components/mealDetailsModal";
-import { Meal } from "@/app/types/type"; // ✅ FIX 1
 
-const RestaurantPage = () => {
-  const { id } = useParams<{ id: string }>();
-  const restaurantId = Number(id);
+import { useQuery } from "@apollo/client/react";
 
-  const [activeMeal, setActiveMeal] = useState<Meal | null>(null);
+import MenuCard from "@/app/components/menuCard";
 
-  const restaurant = restaurants.find(r => r.id === restaurantId);
-  const restaurantMeals = getMealsForRestaurant(restaurantId);
+import MenuDetailsModal from "@/app/components/menuDetailsModal";
 
-  if (!restaurant) {
-    return <div className="p-6">Restaurant not found</div>;
+import {
+  RestaurantMenu,
+  GetRestaurantMenusByRestaurantResponse,
+} from "@/app/types/type";
+
+import { GET_RESTAURANT_MENUS_BY_RESTAURANT } from "@/graphql/queries/restaurant.queries";
+
+export default function RestaurantPage() {
+  const { id } = useParams<{
+    id: string;
+  }>();
+
+  //
+  // ACTIVE MENU
+  //
+
+  const [activeMenu, setActiveMenu] = useState<RestaurantMenu | null>(null);
+
+  //
+  // FETCH MENUS
+  //
+
+  const { data, loading, error } =
+    useQuery<GetRestaurantMenusByRestaurantResponse>(
+      GET_RESTAURANT_MENUS_BY_RESTAURANT,
+      {
+        variables: {
+          restaurantId: id,
+        },
+
+        skip: !id,
+      },
+    );
+
+  const restaurantMenus = data?.getRestaurantMenusByRestaurant || [];
+
+  //
+  // LOADING
+  //
+
+  if (loading) {
+    return <main className="p-6">Loading restaurant menus...</main>;
+  }
+
+  //
+  // ERROR
+  //
+
+  if (error) {
+    return <main className="p-6">{error.message}</main>;
+  }
+
+  //
+  // EMPTY
+  //
+
+  if (restaurantMenus.length === 0) {
+    return <main className="p-6">No menus available</main>;
   }
 
   return (
     <>
-      <main className="grid grid-cols-4 gap-4 bg-white rounded-[30px_30px_0_0] p-[35px_45px]">
-        {restaurantMeals.length === 0 && (
-          <p className="col-span-4 text-center text-gray-500">
-            No meals available for this restaurant
-          </p>
-        )}
-
-        {restaurantMeals.map(meal => (
-          <MealCard
-            key={meal.id}
-            meal={meal}
-            restaurantId={restaurantId}
-            onClick={() => setActiveMeal(meal)} // ✅ opens modal
+      <main
+        className="
+          grid
+          grid-cols-4
+          gap-4
+          bg-white
+          rounded-[30px_30px_0_0]
+          p-[35px_45px]
+        "
+      >
+        {restaurantMenus.map((menu: RestaurantMenu) => (
+          <MenuCard
+            key={menu.id}
+            data={menu}
+            role="customer"
+            onClick={(clickedMenu) =>
+              setActiveMenu(clickedMenu as RestaurantMenu)
+            }
           />
         ))}
       </main>
 
-      {/* ✅ FIX 3 */}
-      {activeMeal && (
-        <MealDetailsModal
-          meal={activeMeal}
-          restaurantId={restaurantId}
-          onClose={() => setActiveMeal(null)}
+      {activeMenu && (
+        <MenuDetailsModal
+          menu={activeMenu}
+          onClose={() => setActiveMenu(null)}
         />
       )}
     </>
   );
-};
-
-export default RestaurantPage;
+}

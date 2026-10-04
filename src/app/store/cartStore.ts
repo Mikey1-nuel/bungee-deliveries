@@ -1,21 +1,48 @@
-import { SidesExtra } from "../types/type";
+// app/store/cartStore.ts
 
 export interface CartItem {
-  id: string; // unique (meal + restaurant + extras)
-  mealId: number;
-  mealName: string;
+  //
+  // LOCAL CART ITEM ID
+  //
 
-  restaurantId: number;
-  restaurantName: string;
+  id: string;
+
+  //
+  // RESTAURANT MENU
+  //
+
+  restaurant_menu_id: string;
+
+  //
+  // RESTAURANT
+  //
+
+  restaurant_id: string;
+
+  restaurant_name: string;
+
+  //
+  // MENU
+  //
+
+  menu_name: string;
+
+  menu_type:
+    | "meal"
+    | "extra"
+    | "swallow";
+
+  menu_image?: string;
+
+  //
+  // PRICING
+  //
+
+  unit_price: number;
 
   quantity: number;
 
-  basePrice: number;
-  extras: SidesExtra[];
-  extrasTotal: number;
-
-  totalPrice: number; // frozen at add-to-cart time
-  image?: string;
+  total_price: number;
 }
 
 export interface CartState {
