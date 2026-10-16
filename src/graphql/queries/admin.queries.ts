@@ -42,9 +42,20 @@ export const GET_ADMIN_USERS = gql`
   }
 `;
 
+// admin.queries.ts
 export const GET_ADMIN_RESTAURANTS = gql`
-  query GetAdminRestaurants($page: Int, $limit: Int, $search: String) {
-    getAdminRestaurants(page: $page, limit: $limit, search: $search) {
+  query GetAdminRestaurants(
+    $page: Int
+    $limit: Int
+    $search: String
+    $approvalStatus: ApprovalStatus
+  ) {
+    getAdminRestaurants(
+      page: $page
+      limit: $limit
+      search: $search
+      approvalStatus: $approvalStatus
+    ) {
       pagination {
         page
         limit
@@ -62,6 +73,7 @@ export const GET_ADMIN_RESTAURANTS = gql`
         ownerId
         ownerName
         ownerEmail
+        approvalStatus
         createdAt
       }
     }
@@ -95,7 +107,8 @@ export const GET_ADMIN_ORDERS = gql`
         total
         deliveryAddress
         createdAt
-        rider {          # ← add
+        rider {
+          # ← add
           id
           fullName
         }

@@ -79,8 +79,6 @@ export default function LoginForm() {
       }));
     };
 
-  if (loading) return;
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -117,7 +115,7 @@ export default function LoginForm() {
       toast.success(`Welcome back ${result.data.login.user.fullName}!`);
     } catch (error: any) {
       const message =
-        error?.graphQLErrors?.[0]?.message ||
+        error?.errors?.[0]?.message ||
         error?.networkError?.message ||
         error?.message ||
         "Something went wrong.";

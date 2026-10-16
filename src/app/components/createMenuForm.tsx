@@ -111,6 +111,16 @@ export default function CreateMenuModal({ open, onClose, onSuccess }: Props) {
 
       onSuccess();
     } catch (err: any) {
+      const code = err?.graphQLErrors?.[0]?.extensions?.code;
+
+      if (code === "RESTAURANT_PROFILE_MISSING") {
+        setError(
+          "Set up your restaurant profile first, then you can add menu items.",
+        );
+        // optionally: onClose(); router.push("/dashboard/restaurant_dash/setup");
+        return;
+      }
+
       setError(err.message || "Failed to create menu item.");
     } finally {
       setSubmitting(false);
