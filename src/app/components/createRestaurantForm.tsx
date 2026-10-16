@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useMutation } from "@apollo/client/react";
 import { CREATE_RESTAURANT } from "@/graphql/mutations/create-restaurant";
+import { GET_RESTAURANTS } from "@/graphql/queries/restaurant.queries";
 import {
   RestaurantForm,
   CreateRestaurantResponse,
@@ -23,7 +24,10 @@ export default function CreateRestaurantForm() {
   const [createRestaurant] = useMutation<
     CreateRestaurantResponse,
     CreateRestaurantVariables
-  >(CREATE_RESTAURANT);
+  >(CREATE_RESTAURANT, {
+    refetchQueries: [{ query: GET_RESTAURANTS }],
+    awaitRefetchQueries: true,
+  });
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];

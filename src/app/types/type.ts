@@ -18,9 +18,11 @@ export interface SignUp {
   fullName: string;
   email: string;
   phone: string;
-  // dob: string;
   password: string;
   role: string;
+  restaurantName?: string;
+  restaurantLocation?: string;
+  restaurantImage?: string;
 }
 
 export interface AuthUser {
@@ -649,6 +651,7 @@ export interface AdminRestaurant {
   owner_id: string;
   ownerName: string;
   ownerEmail?: string;
+  approvalStatus: string;
   created_at: string;
 }
 
