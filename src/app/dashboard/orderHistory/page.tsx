@@ -85,15 +85,15 @@ export default function OrderHistoryPage() {
       order.items.forEach((item) => {
         addItem({
           id: crypto.randomUUID(),
-          restaurant_menu_id: item.restaurant_menu_id,
+          restaurant_menu_id: item.restaurantMenuId,
           restaurant_id: order.restaurant.id,
           restaurant_name: order.restaurant.name,
           menu_name: item.menu.name,
           menu_type: item.menu.type as MenuType,
           menu_image: item.menu.image,
-          unit_price: item.unit_price,
+          unit_price: item.unitPrice,
           quantity: item.quantity,
-          total_price: item.total_price,
+          total_price: item.totalPrice,
         });
       });
 
@@ -158,10 +158,10 @@ export default function OrderHistoryPage() {
                   <div>
                     <h3 className="font-semibold">{order.restaurant.name}</h3>
                     <p className="text-xs text-gray-500">
-                      {order.deliveryAddress}
+                      {order.delivery_address}
                     </p>
                     <p className="text-xs text-gray-400">
-                      {new Date(Number(order.createdAt)).toLocaleString()}
+                      {new Date(Number(order.created_at)).toLocaleString()}
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-2">

@@ -101,9 +101,9 @@ export default function RiderEarningsPage() {
                 </p>
                 <p className="text-xs text-gray-500">{order.restaurant.name}</p>
                 <p className="text-xs text-gray-400">
-                  {order.delivered_at
-                    ? new Date(Number(order.delivered_at)).toLocaleString()
-                    : new Date(Number(order.created_at)).toLocaleString()}
+                  {order.deliveredAt
+                    ? new Date(Number(order.deliveredAt)).toLocaleString()
+                    : new Date(Number(order.createdAt)).toLocaleString()}
                 </p>
               </div>
               <div className="text-right">
