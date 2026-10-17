@@ -73,7 +73,7 @@ export default function CreateMenuModal({ open, onClose, onSuccess }: Props) {
     if (!imageFile) return null;
     const fd = new FormData();
     fd.append("file", imageFile);
-    const response = await fetch("http://localhost:5000/uploads?folder=menus", {
+    const response = await fetch("https://bungee-deliveries-backend-staging.up.railway.app/uploads?folder=menus", {
       method: "POST",
       body: fd,
     });
