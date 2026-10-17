@@ -44,7 +44,7 @@ export default function CreateRestaurantForm() {
     fd.append("file", imageFile);
 
     const res = await fetch(
-      "http://localhost:5000/uploads?folder=restaurants",
+      "https://bungee-deliveries-backend-staging.up.railway.app/uploads?folder=restaurants",
       {
         method: "POST",
         body: fd,
