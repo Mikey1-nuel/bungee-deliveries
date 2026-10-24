@@ -15,8 +15,8 @@ export const GET_ADMIN_STATS = gql`
 `;
 
 export const GET_ADMIN_USERS = gql`
-  query GetAdminUsers($page: Int, $limit: Int, $search: String, $role: String) {
-    getAdminUsers(page: $page, limit: $limit, search: $search, role: $role) {
+  query GetAdminUsers($page: Int, $limit: Int, $search: String, $role: String, $approvalStatus: ApprovalStatus) {
+    getAdminUsers(page: $page, limit: $limit, search: $search, role: $role, approvalStatus: $approvalStatus) {
       users {
         id
         fullName
@@ -208,6 +208,24 @@ export const APPROVE_RESTAURANT = gql`
 export const REJECT_RESTAURANT = gql`
   mutation RejectRestaurant($restaurantId: ID!) {
     rejectRestaurant(restaurantId: $restaurantId) {
+      success
+      message
+    }
+  }
+`;
+
+export const APPROVE_USER = gql`
+  mutation ApproveUser($userId: ID!) {
+    approveUser(userId: $userId) {
+      success
+      message
+    }
+  }
+`;
+
+export const REJECT_USER = gql`
+  mutation RejectUser($userId: ID!) {
+    rejectUser(userId: $userId) {
       success
       message
     }
