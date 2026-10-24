@@ -7,13 +7,13 @@ import {
   BAN_USER,
   UNBAN_USER,
   DELETE_USER,
+  APPROVE_USER,
+  REJECT_USER,
 } from "@/graphql/queries/admin.queries";
 import { AdminUsersResponse, AdminUser } from "@/app/types/type";
 import AdminSearchBar from "@/app/components/admin/AdminSearchBar";
 import AdminPagination from "@/app/components/admin/AdminPagination";
 import toast from "react-hot-toast";
-
-// ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
 const ROLE_BADGE: Record<string, string> = {
   customer: "bg-blue-100   text-blue-700",
@@ -31,32 +31,30 @@ const ROLE_ICON: Record<string, string> = {
   admin: "🔑",
 };
 
-// ─── HELPERS ─────────────────────────────────────────────────────────────────
+const APPROVAL_BADGE: Record<string, string> = {
+  pending: "bg-yellow-100 text-yellow-700",
+  approved: "bg-green-100 text-green-700",
+  rejected: "bg-red-100 text-red-600",
+};
 
 const formatLastSeen = (lastSeen?: string | null): string => {
   if (!lastSeen || lastSeen === "0" || lastSeen === "null") return "Never";
-
   const ts = Number(lastSeen);
   if (isNaN(ts) || ts === 0) return "Never";
-
   const created = new Date(ts);
   if (isNaN(created.getTime())) return "Never";
-
   const now = new Date();
   const diffMs = now.getTime() - created.getTime();
   if (diffMs < 0) return "Just now";
-
   const minutes = Math.floor(diffMs / 60000);
   const hours = Math.floor(diffMs / 3600000);
   const days = Math.floor(diffMs / 86400000);
   const weeks = Math.floor(days / 7);
-
   if (minutes < 1) return "Just now";
   if (minutes < 60) return `${minutes}m ago`;
   if (hours < 24) return `${hours}h ago`;
   if (days < 7) return `${days}d ago`;
   if (weeks < 4) return `${weeks}w ago`;
-
   return created.toLocaleDateString(undefined, {
     day: "numeric",
     month: "short",
@@ -74,8 +72,6 @@ const formatJoined = (createdAt: string): string => {
   });
 };
 
-// ─── PRESENCE BADGE ──────────────────────────────────────────────────────────
-
 function PresenceBadge({
   isOnline,
   lastSeen,
@@ -91,9 +87,7 @@ function PresenceBadge({
       </span>
     );
   }
-
   const lastSeenText = formatLastSeen(lastSeen);
-
   return (
     <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
       <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
@@ -102,27 +96,31 @@ function PresenceBadge({
   );
 }
 
-// ─── USER CARD ───────────────────────────────────────────────────────────────
+type ActionType = "approve" | "reject" | "ban" | "unban" | "delete";
 
 function UserCard({
   user,
   onAction,
 }: {
   user: AdminUser;
-  onAction: (type: "ban" | "unban" | "delete", userId: string) => void;
+  onAction: (type: ActionType, userId: string) => void;
 }) {
   const isBanned = user.status === "suspended";
+  const isPending = user.approvalStatus === "pending";
+  const isRejected = user.approvalStatus === "rejected";
 
   return (
     <div
       className={`border rounded-2xl p-4 bg-white transition ${
-        isBanned ? "border-red-100 bg-red-50/30" : "border-gray-100"
+        isBanned
+          ? "border-red-100 bg-red-50/30"
+          : isPending
+            ? "border-yellow-100 bg-yellow-50/30"
+            : "border-gray-100"
       }`}
     >
       <div className="flex items-start justify-between gap-4">
-        {/* LEFT — Avatar + Info */}
         <div className="flex items-start gap-3 min-w-0">
-          {/* Avatar with online dot */}
           <div className="relative shrink-0">
             <div
               className={`w-10 h-10 rounded-full flex items-center justify-center text-base font-bold text-white ${
@@ -133,7 +131,6 @@ function UserCard({
             >
               {user.fullName.charAt(0).toUpperCase()}
             </div>
-            {/* Online dot on avatar */}
             <span
               className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
                 user.isOnline ? "bg-green-500" : "bg-gray-300"
@@ -141,7 +138,6 @@ function UserCard({
             />
           </div>
 
-          {/* Text info */}
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
               <p className="font-semibold text-sm text-[#391713] truncate">
@@ -152,9 +148,16 @@ function UserCard({
                   Banned
                 </span>
               )}
+              <span
+                className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold capitalize ${
+                  APPROVAL_BADGE[user.approvalStatus] ??
+                  "bg-gray-100 text-gray-600"
+                }`}
+              >
+                {user.approvalStatus}
+              </span>
             </div>
 
-            {/* Role badge */}
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               <span
                 className={`text-[10px] px-2 py-0.5 rounded-full font-semibold capitalize flex items-center gap-0.5 ${
@@ -165,7 +168,6 @@ function UserCard({
               </span>
             </div>
 
-            {/* Contact */}
             {user.email && (
               <p className="text-xs text-gray-500 mt-1 truncate">
                 {user.email}
@@ -175,7 +177,6 @@ function UserCard({
               <p className="text-xs text-gray-400">{user.phone}</p>
             )}
 
-            {/* Presence + Joined */}
             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
               <PresenceBadge
                 isOnline={user.isOnline}
@@ -188,36 +189,55 @@ function UserCard({
           </div>
         </div>
 
-        {/* RIGHT — Actions */}
+        {/* Pending: Approve/Reject. Otherwise: Ban/Unban + Delete, as before. */}
         <div className="flex flex-col gap-1.5 shrink-0">
-          {isBanned ? (
-            <button
-              onClick={() => onAction("unban", user.id)}
-              className="text-xs px-3 py-1.5 rounded-full bg-green-100 text-green-700 font-semibold hover:bg-green-200 transition whitespace-nowrap"
-            >
-              ✓ Unban
-            </button>
+          {isPending ? (
+            <>
+              <button
+                onClick={() => onAction("approve", user.id)}
+                className="text-xs px-3 py-1.5 rounded-full bg-green-100 text-green-700 font-semibold hover:bg-green-200 transition whitespace-nowrap"
+              >
+                ✓ Approve
+              </button>
+              <button
+                onClick={() => onAction("reject", user.id)}
+                className="text-xs px-3 py-1.5 rounded-full bg-red-100 text-red-600 font-semibold hover:bg-red-200 transition whitespace-nowrap"
+              >
+                ✕ Reject
+              </button>
+            </>
           ) : (
-            <button
-              onClick={() => onAction("ban", user.id)}
-              className="text-xs px-3 py-1.5 rounded-full bg-yellow-100 text-yellow-700 font-semibold hover:bg-yellow-200 transition whitespace-nowrap"
-            >
-              ⛔ Ban
-            </button>
+            <>
+              {isBanned ? (
+                <button
+                  onClick={() => onAction("unban", user.id)}
+                  className="text-xs px-3 py-1.5 rounded-full bg-green-100 text-green-700 font-semibold hover:bg-green-200 transition whitespace-nowrap"
+                >
+                  ✓ Unban
+                </button>
+              ) : (
+                !isRejected && (
+                  <button
+                    onClick={() => onAction("ban", user.id)}
+                    className="text-xs px-3 py-1.5 rounded-full bg-yellow-100 text-yellow-700 font-semibold hover:bg-yellow-200 transition whitespace-nowrap"
+                  >
+                    ⛔ Ban
+                  </button>
+                )
+              )}
+              <button
+                onClick={() => onAction("delete", user.id)}
+                className="text-xs px-3 py-1.5 rounded-full bg-red-100 text-red-600 font-semibold hover:bg-red-200 transition whitespace-nowrap"
+              >
+                🗑 Delete
+              </button>
+            </>
           )}
-          <button
-            onClick={() => onAction("delete", user.id)}
-            className="text-xs px-3 py-1.5 rounded-full bg-red-100 text-red-600 font-semibold hover:bg-red-200 transition whitespace-nowrap"
-          >
-            🗑 Delete
-          </button>
         </div>
       </div>
     </div>
   );
 }
-
-// ─── CONFIRM MODAL ───────────────────────────────────────────────────────────
 
 function ConfirmModal({
   type,
@@ -225,12 +245,22 @@ function ConfirmModal({
   onCancel,
   loading,
 }: {
-  type: "ban" | "unban" | "delete";
+  type: ActionType;
   onConfirm: () => void;
   onCancel: () => void;
   loading: boolean;
 }) {
   const meta = {
+    approve: {
+      title: "Approve Account",
+      color: "bg-green-600 hover:bg-green-700",
+      label: "Approve",
+    },
+    reject: {
+      title: "Reject Account",
+      color: "bg-red-600 hover:bg-red-700",
+      label: "Reject",
+    },
     ban: {
       title: "Ban User",
       color: "bg-yellow-600 hover:bg-yellow-700",
@@ -238,27 +268,32 @@ function ConfirmModal({
     },
     unban: {
       title: "Unban User",
-      color: "bg-green-600  hover:bg-green-700",
+      color: "bg-green-600 hover:bg-green-700",
       label: "Unban User",
     },
     delete: {
       title: "Delete User",
-      color: "bg-red-600    hover:bg-red-700",
+      color: "bg-red-600 hover:bg-red-700",
       label: "Delete User",
     },
+  }[type];
+
+  const description = {
+    approve:
+      "The account will be approved and the user notified — they'll be able to log in.",
+    reject:
+      "The account will be rejected and the user notified. This can be reconsidered later if needed.",
+    ban: "The user will be suspended and unable to access the platform.",
+    unban: "The user's account will be restored and they can log in again.",
+    delete:
+      "This action is permanent and cannot be undone. All user data will be removed.",
   }[type];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-2xl p-6 w-full max-w-sm mx-4 shadow-xl">
         <h3 className="font-bold text-[#391713] mb-2">{meta.title}</h3>
-        <p className="text-sm text-gray-500 mb-5">
-          {type === "delete"
-            ? "This action is permanent and cannot be undone. All user data will be removed."
-            : type === "ban"
-              ? "The user will be suspended and unable to access the platform."
-              : "The user's account will be restored and they can log in again."}
-        </p>
+        <p className="text-sm text-gray-500 mb-5">{description}</p>
         <div className="flex gap-3">
           <button
             onClick={onCancel}
@@ -282,10 +317,9 @@ function ConfirmModal({
   );
 }
 
-// ─── SUMMARY BAR ─────────────────────────────────────────────────────────────
-
 function SummaryBar({ users }: { users: AdminUser[] }) {
   const online = users.filter((u) => u.isOnline).length;
+  const pending = users.filter((u) => u.approvalStatus === "pending").length;
   const banned = users.filter((u) => u.status === "suspended").length;
   const byRole = users.reduce(
     (acc, u) => {
@@ -297,6 +331,11 @@ function SummaryBar({ users }: { users: AdminUser[] }) {
 
   return (
     <div className="flex gap-2 flex-wrap mb-4">
+      {pending > 0 && (
+        <span className="text-[11px] px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-700 font-semibold">
+          ⏳ {pending} pending
+        </span>
+      )}
       {online > 0 && (
         <span className="text-[11px] px-2.5 py-1 rounded-full bg-green-100 text-green-700 font-semibold flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
@@ -311,9 +350,7 @@ function SummaryBar({ users }: { users: AdminUser[] }) {
       {Object.entries(byRole).map(([role, count]) => (
         <span
           key={role}
-          className={`text-[11px] px-2.5 py-1 rounded-full font-semibold capitalize ${
-            ROLE_BADGE[role] ?? "bg-gray-100 text-gray-600"
-          }`}
+          className={`text-[11px] px-2.5 py-1 rounded-full font-semibold capitalize ${ROLE_BADGE[role] ?? "bg-gray-100 text-gray-600"}`}
         >
           {ROLE_ICON[role]} {count} {role}
           {count > 1 ? "s" : ""}
@@ -323,15 +360,16 @@ function SummaryBar({ users }: { users: AdminUser[] }) {
   );
 }
 
-// ─── PAGE ─────────────────────────────────────────────────────────────────────
-
 export default function AdminUsersPage() {
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
   const [debounced, setDebounced] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
+  const [approvalFilter, setApprovalFilter] = useState<
+    "" | "pending" | "approved" | "rejected"
+  >("");
   const [confirming, setConfirming] = useState<{
-    type: "ban" | "unban" | "delete";
+    type: ActionType;
     userId: string;
   } | null>(null);
 
@@ -351,11 +389,14 @@ export default function AdminUsersPage() {
         limit: 20,
         search: debounced || null,
         role: roleFilter || null,
+        approvalStatus: approvalFilter || null,
       },
       fetchPolicy: "cache-and-network",
     },
   );
 
+  const [approveUser] = useMutation(APPROVE_USER);
+  const [rejectUser] = useMutation(REJECT_USER);
   const [banUser] = useMutation(BAN_USER);
   const [unbanUser] = useMutation(UNBAN_USER);
   const [deleteUser] = useMutation(DELETE_USER);
@@ -370,17 +411,21 @@ export default function AdminUsersPage() {
     setActioning(true);
     try {
       const vars = { variables: { userId: confirming.userId } };
+      const successMessage: Record<ActionType, string> = {
+        approve: "Account approved",
+        reject: "Account rejected",
+        ban: "User banned",
+        unban: "User unbanned",
+        delete: "User deleted",
+      };
+
+      if (confirming.type === "approve") await approveUser(vars);
+      if (confirming.type === "reject") await rejectUser(vars);
       if (confirming.type === "ban") await banUser(vars);
       if (confirming.type === "unban") await unbanUser(vars);
       if (confirming.type === "delete") await deleteUser(vars);
 
-      toast.success(
-        confirming.type === "ban"
-          ? "User banned"
-          : confirming.type === "unban"
-            ? "User unbanned"
-            : "User deleted",
-      );
+      toast.success(successMessage[confirming.type]);
       setConfirming(null);
       refetch();
     } catch (e: any) {
@@ -392,7 +437,6 @@ export default function AdminUsersPage() {
 
   return (
     <main className="bg-white rounded-t-3xl p-8 min-h-screen">
-      {/* HEADER */}
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-[#391713]">Users</h1>
@@ -413,7 +457,6 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      {/* FILTERS */}
       <div className="flex gap-3 mb-3 flex-wrap">
         <div className="flex-1 min-w-[200px]">
           <AdminSearchBar
@@ -437,12 +480,28 @@ export default function AdminUsersPage() {
           <option value="logistics">Logistics</option>
           <option value="admin">Admin</option>
         </select>
+        <div className="flex gap-1.5">
+          {(["", "pending", "approved", "rejected"] as const).map((s) => (
+            <button
+              key={s || "all"}
+              onClick={() => {
+                setApprovalFilter(s);
+                setPage(1);
+              }}
+              className={`text-xs px-3 py-2 rounded-full font-semibold capitalize transition ${
+                approvalFilter === s
+                  ? "bg-[#E95322] text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              {s || "All"}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* SUMMARY */}
       {users.length > 0 && <SummaryBar users={users} />}
 
-      {/* LIST */}
       {loading ? (
         <div className="py-10 text-center text-gray-400">Loading users...</div>
       ) : users.length === 0 ? (
@@ -466,7 +525,6 @@ export default function AdminUsersPage() {
         onNext={() => setPage((p) => p + 1)}
       />
 
-      {/* CONFIRM MODAL */}
       {confirming && (
         <ConfirmModal
           type={confirming.type}
